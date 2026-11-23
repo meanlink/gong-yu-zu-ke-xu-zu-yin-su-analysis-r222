@@ -1,0 +1,10 @@
+.lease-workspace > .panel { margin-bottom: 14px; }
+.lease-card h2 { margin: 0; }
+.lease-card > p { margin: 8px 0; }
+.lease-form { padding: 12px 0; display: grid; gap: 12px; }
+.lease-form h3 { margin: 0; }
+.lease-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(158px,1fr)); gap: 12px; }
+.lease-field { display: grid; gap: 6px; color: #2c4050; font-weight: 600; }
+.lease-field input, .lease-field select { width: 100%; min-width: 0; border: 1px solid #c8d6dd; padding: 8px; border-radius: 7px; }
+.lease-form .button { justify-self: start; }
+.lease-workspace .table-wrap { overflow-x: auto; }

@@ -1,0 +1,88 @@
+name: rental-renewal-factors
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-rental-renewal-factors}-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-rental_ops}
+      POSTGRES_USER: ${POSTGRES_USER:-rental_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rental_pass}
+    ports:
+      - "${DB_PORT:-17758}:5432"
+    volumes:
+      - rental_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rental_app} -d ${POSTGRES_DB:-rental_ops}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  redis:
+    image: redis:7-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-rental-renewal-factors}-redis
+    ports:
+      - "6389:6379"
+    volumes:
+      - rental_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  backend:
+    build: ./backend
+    container_name: ${COMPOSE_PROJECT_NAME:-rental-renewal-factors}-backend
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://rental_app:rental_pass@db:5432/rental_ops}
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: ${JWT_SECRET:-gb1059-rental-secret}
+      SEED_DEMO: ${SEED_DEMO:-true}
+    ports:
+      - "${BACKEND_PORT:-19258}:8000"
+    volumes:
+      - rental_shared:/shared
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/health\", timeout=2)'"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  worker:
+    build: ./backend
+    container_name: ${COMPOSE_PROJECT_NAME:-rental-renewal-factors}-worker
+    command: ["python", "worker.py"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://rental_app:rental_pass@db:5432/rental_ops}
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - rental_shared:/shared
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import os,time; p=\"/shared/worker.heartbeat\"; assert os.path.exists(p) and time.time()-os.path.getmtime(p)<30'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+  frontend:
+    build: ./frontend
+    container_name: ${COMPOSE_PROJECT_NAME:-rental-renewal-factors}-frontend
+    ports:
+      - "${FRONTEND_PORT:-18258}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+volumes:
+  rental_db_data:
+  rental_redis_data:
+  rental_shared:
